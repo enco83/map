@@ -7,60 +7,148 @@
     <title>마커 클러스터러에 클릭이벤트 추가하기</title>
  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>   
 </head>
+    <style>
+.overlaybox {position:relative;width:360px;height:350px;background:url('http://t1.daumcdn.net/localimg/localimages/07/mapapidoc/box_movie.png') no-repeat;padding:15px 10px;}
+.overlaybox div, ul {overflow:hidden;margin:0;padding:0;}
+.overlaybox li {list-style: none;}
+.overlaybox .boxtitle {color:#fff;font-size:16px;font-weight:bold;background: url('http://t1.daumcdn.net/localimg/localimages/07/mapapidoc/overlay_close.png') no-repeat right 120px center;margin-bottom:8px;}
+.overlaybox .first {position:relative;width:247px;height:136px;background: url('http://t1.daumcdn.net/localimg/localimages/07/mapapidoc/thumb.png') no-repeat;margin-bottom:8px;}
+.first .text {color:#fff;font-weight:bold;}
+.first .triangle {position:absolute;width:48px;height:48px;top:0;left:0;background: url('http://t1.daumcdn.net/localimg/localimages/07/mapapidoc/triangle.png') no-repeat; padding:6px;font-size:18px;}
+.first .movietitle {position:absolute;width:100%;bottom:0;background:rgba(0,0,0,0.4);padding:7px 15px;font-size:14px;}
+.overlaybox ul {width:247px;}
+.overlaybox li {position:relative;margin-bottom:2px;background:#2b2d36;padding:5px 10px;color:#aaabaf;line-height: 1;}
+.overlaybox li span {display:inline-block;}
+.overlaybox li .number {font-size:16px;font-weight:bold;}
+.overlaybox li .title {font-size:13px;}
+.overlaybox ul .arrow {position:absolute;margin-top:8px;right:25px;width:5px;height:3px;background:url('http://t1.daumcdn.net/localimg/localimages/07/mapapidoc/updown.png') no-repeat;} 
+.overlaybox li .up {background-position:0 -40px;}
+.overlaybox li .down {background-position:0 -60px;}
+.overlaybox li .count {position:absolute;margin-top:5px;right:15px;font-size:10px;}
+.overlaybox li:hover {color:#fff;background:#d24545;}
+.overlaybox li:hover .up {background-position:0 0px;}
+.overlaybox li:hover .down {background-position:0 -20px;}   
+.wrap {position: absolute;left: 0;bottom: 40px;width: 288px;height: 132px;margin-left: -144px;text-align: left;overflow: hidden;font-size: 12px;font-family: 'Malgun Gothic', dotum, '돋움', sans-serif;line-height: 1.5;}
+    .wrap * {padding: 0;margin: 0;}
+    .wrap .info {width: 286px;height: 120px;border-radius: 5px;border-bottom: 2px solid #ccc;border-right: 1px solid #ccc;overflow: hidden;background: #fff;}
+    .wrap .info:nth-child(1) {border: 0;box-shadow: 0px 1px 2px #888;}
+    .info .title {padding: 5px 0 0 10px;height: 30px;background: #eee;border-bottom: 1px solid #ddd;font-size: 18px;font-weight: bold;}
+    .info .close {position: absolute;top: 10px;right: 10px;color: #888;width: 17px;height: 17px;background: url('http://t1.daumcdn.net/localimg/localimages/07/mapapidoc/overlay_close.png');}
+    .info .close:hover {cursor: pointer;}
+    .info .body {position: relative;overflow: hidden;}
+    .info .desc {position: relative;margin: 13px 0 0 90px;height: 75px;}
+    .desc .ellipsis {overflow: hidden;text-overflow: ellipsis;white-space: nowrap;}
+    .desc .jibun {font-size: 11px;color: #888;margin-top: -2px;}
+    .info .img {position: absolute;top: 6px;left: 5px;width: 73px;height: 71px;border: 1px solid #ddd;color: #888;overflow: hidden;}
+    .info:after {content: '';position: absolute;margin-left: -12px;left: 50%;bottom: 0;width: 22px;height: 12px;background: url('http://t1.daumcdn.net/localimg/localimages/07/mapapidoc/vertex_white.png')}
+    .info .link {color: #5085BB;}
+</style>
 <body>
-<p style="margin-top:-12px">
-     사용한 데이터를 보시려면
-    <em class="link">
-       <a href="/download/web/data/chicken.json" target="_blank">여기를 클릭하세요!</a>
-    </em>
-</p>
+
 <div id="map" style="width:100%;height:850px;"></div>
 
 <script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=0bb1cb38fd36490239710319b9bbb201&libraries=clusterer"></script>
 <script>
-    var map = new daum.maps.Map(document.getElementById('map'), { // 지도를 표시할 div
-        center : new daum.maps.LatLng(36.2683, 127.6358), // 지도의 중심좌표
-        level : 13 // 지도의 확대 레벨
-    });
+	var _cluster = {}
+	_cluster.markers = [];
+	_cluster.overlay = [];
+	_cluster.marker = [];
+	_cluster.markerItemNos = [];
+	_cluster.images = {};
+	
+// 오버레이 클리어
+	_cluster.overlay.clear = function() {
+		if (_cluster.overlay.length > 0) {
+			for (var index = 0; index < _cluster.overlay.length; index++) {
+				_cluster.overlay[index].setMap(null);
+			}
+		}
+	};
 
-    // 마커 클러스터러를 생성합니다
-    // 마커 클러스터러를 생성할 때 disableClickZoom 값을 true로 지정하지 않은 경우
-    // 클러스터 마커를 클릭했을 때 클러스터 객체가 포함하는 마커들이 모두 잘 보이도록 지도의 레벨과 영역을 변경합니다
-    // 이 예제에서는 disableClickZoom 값을 true로 설정하여 기본 클릭 동작을 막고
-    // 클러스터 마커를 클릭했을 때 클릭된 클러스터 마커의 위치를 기준으로 지도를 1레벨씩 확대합니다
-    var clusterer = new daum.maps.MarkerClusterer({
-        map: map, // 마커들을 클러스터로 관리하고 표시할 지도 객체
-        averageCenter: true, // 클러스터에 포함된 마커들의 평균 위치를 클러스터 마커 위치로 설정
-        minLevel: 10, // 클러스터 할 최소 지도 레벨
-        disableClickZoom: true // 클러스터 마커를 클릭했을 때 지도가 확대되지 않도록 설정한다
-    });
+// 마커 클리어
+	_cluster.marker.clear = function() {
+		if (_cluster.marker.length > 0) {
+			for (var index = 0; index < _cluster.marker.length; index++) {
+				_cluster.marker[index].setMap(null);
+			}
+		}
+	};
 
-    // 데이터를 가져오기 위해 jQuery를 사용합니다
-    // 데이터를 가져와 마커를 생성하고 클러스터러 객체에 넘겨줍니다
-    $.get("map/chicken.json", function(data) {
-        // 데이터에서 좌표 값을 가지고 마커를 표시합니다
-        // 마커 클러스터러로 관리할 마커 객체는 생성할 때 지도 객체를 설정하지 않습니다
-        var markers = $(data.positions).map(function(i, position) {
-            return new daum.maps.Marker({
-                position : new daum.maps.LatLng(position.lat, position.lng)
-            });
+// 지도 위 클리어
+	_cluster.clear = function() {
+		if (_cluster.overlay)
+			_cluster.overlay.clear();
+		
+		if (_cluster.marker)
+			_cluster.marker.clear();
+		
+		if (_cluster.markers)
+			_cluster.markers.clear();
+}
+
+// n개의 마커를 생성한다.
+	var markers = $(map/chicken.json).map(function(i, item) {
+		var content = '<div class="wrap">' + 
+        '    <div class="info">' + 
+        '        <div class="title">' + 
+        '            카카오 스페이스닷원' + 
+        '            <div class="close" onclick="closeOverlay()" title="닫기"></div>' + 
+        '        </div>' + 
+        '        <div class="body">' + 
+        '            <div class="img">' +
+        '                <img src="http://cfile181.uf.daum.net/image/250649365602043421936D" width="73" height="70">' +
+        '           </div>' + 
+        '            <div class="desc">' + 
+        '                <div class="ellipsis">제주특별자치도 제주시 첨단로 242</div>' + 
+        '                <div class="jibun ellipsis">(우) 63309 (지번) 영평동 2181</div>' + 
+        '                <div><a href="http://www.kakaocorp.com/main" target="_blank" class="link">홈페이지</a></div>' + 
+        '            </div>' + 
+        '        </div>' + 
+        '    </div>' +    
+        '</div>';
+        
+        var marker = new daum.maps.Marker({
+        	position: new daum.maps.LatLng(item.lat, item.lng),
+        	image: new daum.maps.MarkerImage(imageSrc, imageSize, imageOption),
+        	clickable: true,
+        	
         });
+        
+// 마커에 클릭이벤트를 등록합니다.        
+        daum.maps.event.addListener(marker, 'click', function(){
+        	if (_cluster.overlay.length > 0)
+        		_cluster.overlay.clear();
+        	
+        	// 커스텀 오버레이를 생성합니다
+        	var customOverlay = new daum.maps.CustomOverlay({
+        		map: map,
+        		postion: marker.getPosition(),
+        		content: content,
+        		yAnchor: 0.5,
+        		xAnchor: 0.5,
+        		zIndex: 3
+        	});
+        	customOverlay.setMap(map);
+        	_cluster.overlay.push(customOverlay);
+        });
+        
+        return marker;
+	})
 
-        // 클러스터러에 마커들을 추가합니다
-        clusterer.addMarkers(markers);
-    });
+// 클러스터에 클릭이벤트를 등록합니다
+	daum.maps.event.addListener(_cluster.markers, 'clusterclick',function(cluster) {
+		_cluster.markerItemNos = [];
+		
+		$.each(cluster.getMarkers(), function (index, item) {
+			_cluster.markerItemNos.push(item.getTitle());
+		});
+		
+	});
 
-    // 마커 클러스터러에 클릭이벤트를 등록합니다
-    // 마커 클러스터러를 생성할 때 disableClickZoom을 true로 설정하지 않은 경우
-    // 이벤트 헨들러로 cluster 객체가 넘어오지 않을 수도 있습니다
-    daum.maps.event.addListener(clusterer, 'clusterclick', function(cluster) {
 
-        // 현재 지도 레벨에서 1레벨 확대한 레벨
-        var level = map.getLevel()-1;
 
-        // 지도를 클릭된 클러스터의 마커의 위치를 기준으로 확대합니다
-        map.setLevel(level, {anchor: cluster.getCenter()});
-    });
+
+
 </script>
 </body>
 </html>
